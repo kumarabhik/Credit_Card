@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package cc.auth.v1;
+
+import "common/v1/common.proto";
+
+option go_package = "github.com/kumarabhik/Credit_Card/gen/go/auth/v1;authv1";
+option java_multiple_files = true;
+option java_package = "com.cc.auth.v1";
+
+service AuthorizationService {
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+  rpc Capture(CaptureRequest) returns (CaptureResponse);
+  rpc Reverse(ReverseRequest) returns (ReverseResponse);
+  rpc Refund(RefundRequest) returns (RefundResponse);
+}
+
+message AuthorizeRequest {
+  string idempotency_key = 1;
+  string card_token = 2;
+  cc.common.v1.Money amount = 3;
+  string merchant_id = 4;
+  cc.common.v1.Geo geo = 5;
+  string channel = 6;
+  string device_id = 7;
+  map<string, string> metadata = 8;
+}
+
+message AuthorizeResponse {
+  cc.common.v1.Decision decision = 1;
+  int32 risk_score = 2;
+  string reason_code = 3;
+  string auth_code = 4;
+  string trace_id = 5;
+  string txn_id = 6;
+}
+
+message CaptureRequest {
+  string txn_id = 1;
+  cc.common.v1.Money amount = 2;
+  string idempotency_key = 3;
+}
+
+message CaptureResponse {
+  string txn_id = 1;
+  string ledger_id = 2;
+  string trace_id = 3;
+}
+
+message ReverseRequest {
+  string txn_id = 1;
+  string reason_code = 2;
+  string idempotency_key = 3;
+}
+
+message ReverseResponse {
+  string txn_id = 1;
+  string reversal_id = 2;
+  string trace_id = 3;
+}
+
+message RefundRequest {
+  string txn_id = 1;
+  cc.common.v1.Money amount = 2;
+  string reason_code = 3;
+  string idempotency_key = 4;
+}
+
+message RefundResponse {
+  string txn_id = 1;
+  string refund_id = 2;
+  string trace_id = 3;
+}

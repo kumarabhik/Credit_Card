@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package cc.common.v1;
+
+option go_package = "github.com/kumarabhik/Credit_Card/gen/go/common/v1;commonv1";
+option java_multiple_files = true;
+option java_package = "com.cc.common.v1";
+
+message Money {
+  string currency = 1;
+  int64 minor_units = 2;
+}
+
+message Geo {
+  double lat = 1;
+  double lng = 2;
+  string country = 3;
+}
+
+message TraceContext {
+  string trace_id = 1;
+  string traceparent = 2;
+}
+
+message MerchantContext {
+  string merchant_id = 1;
+  string mcc = 2;
+  string country = 3;
+}
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_APPROVE = 1;
+  DECISION_DECLINE = 2;
+  DECISION_REVIEW = 3;
+}

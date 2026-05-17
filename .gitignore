@@ -5,11 +5,14 @@
 Thumbs.db
 .idea/
 .vscode/
+.fleet/
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
+*.pyc
+*.pyo
 
 # Dependency and build outputs
 node_modules/
@@ -21,3 +24,17 @@ out/
 .coverage
 .pytest_cache/
 __pycache__/
+.mypy_cache/
+.ruff_cache/
+.gradle/
+.terraform/
+.venv/
+venv/
+gen/
+coverage/
+localstack-data/
+
+# Environment files
+.env
+.env.*
+!.env.example

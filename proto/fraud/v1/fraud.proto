@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package cc.fraud.v1;
+
+import "common/v1/common.proto";
+
+option go_package = "github.com/kumarabhik/Credit_Card/gen/go/fraud/v1;fraudv1";
+option java_multiple_files = true;
+option java_package = "com.cc.fraud.v1";
+
+service FraudService {
+  rpc Score(ScoreRequest) returns (ScoreResponse);
+}
+
+message ScoreRequest {
+  string txn_id = 1;
+  string account_id = 2;
+  string card_token = 3;
+  cc.common.v1.Money amount = 4;
+  string merchant_id = 5;
+  cc.common.v1.Geo geo = 6;
+  string channel = 7;
+  string device_id = 8;
+}
+
+message RuleVerdict {
+  string code = 1;
+  bool hit = 2;
+  int32 weight = 3;
+  string reason = 4;
+}
+
+message ScoreResponse {
+  int32 risk_score = 1;
+  cc.common.v1.Decision decision = 2;
+  repeated RuleVerdict verdicts = 3;
+  string model_version = 4;
+  repeated string reason_codes = 5;
+}

@@ -243,21 +243,21 @@ ISO-8583-inspired **reason codes** (`05` Do Not Honor, `51` Insufficient Funds, 
 ### Phase 0 — Foundation  *(Week 1, days 1–3)*
 
 #### 0.1 Repo & tooling
-- [~] Monorepo skeleton matching the layout in `agents.md`
-- [ ] `Makefile` targets: `up`, `down`, `test`, `lint`, `load`, `chaos`, `sbom`, `proto`
-- [ ] Pre-commit hooks: `gofmt`, `goimports`, `golangci-lint`, `spotless`, `ruff`, `hadolint`, `gitleaks`
-- [ ] `.editorconfig`, `.gitattributes`, `.gitignore`
-- [ ] ADR-0001: record architecture decisions
+- [x] Monorepo skeleton matching the layout in `agents.md`
+- [x] `Makefile` targets: `up`, `down`, `test`, `lint`, `load`, `chaos`, `sbom`, `proto`
+- [x] Pre-commit hooks: `gofmt`, `goimports`, `golangci-lint`, `spotless`, `ruff`, `hadolint`, `gitleaks`
+- [x] `.editorconfig`, `.gitattributes`, `.gitignore`
+- [x] ADR-0001: record architecture decisions
 
 #### 0.2 Proto contracts
-- [ ] `proto/auth/v1/auth.proto`, `fraud/v1/fraud.proto`, `ledger/v1/ledger.proto`, `ml/v1/score.proto`, `common/v1/common.proto`
-- [ ] `buf.gen.yaml` + `buf lint` + `buf breaking` in CI
-- [ ] Codegen targets for Go, Java, Python wired into `make proto`
+- [x] `proto/auth/v1/auth.proto`, `fraud/v1/fraud.proto`, `ledger/v1/ledger.proto`, `ml/v1/score.proto`, `common/v1/common.proto`
+- [x] `buf.gen.yaml` + `buf lint` + `buf breaking` in CI
+- [x] Codegen targets for Go, Java, Python wired into `make proto`
 
 #### 0.3 Local stack
-- [ ] `docker-compose.yml`: Postgres, Redis, LocalStack, Jaeger, Prometheus, Grafana, Loki, OTel collector
-- [ ] LocalStack init script: SQS queues, SNS topics, Dynamo table, KMS keys, Secrets Manager entries
-- [ ] `make smoke` returns `APPROVE` end-to-end in < 60 s on a warm machine
+- [x] `docker-compose.yml`: Postgres, Redis, LocalStack, Jaeger, Prometheus, Grafana, Loki, OTel collector
+- [x] LocalStack init script: SQS queues, SNS topics, Dynamo table, KMS keys, Secrets Manager entries
+- [x] `make smoke` returns `APPROVE` end-to-end in < 60 s on a warm machine
 
 #### 0.4 CI bones
 - [ ] GitHub Actions matrix: per-service lint + unit + build

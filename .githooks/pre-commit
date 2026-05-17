@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -eu
+
+python scripts/pre_commit_runner.py all

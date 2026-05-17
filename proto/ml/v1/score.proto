@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package cc.ml.v1;
+
+option go_package = "github.com/kumarabhik/Credit_Card/gen/go/ml/v1;mlv1";
+option java_multiple_files = true;
+option java_package = "com.cc.ml.v1";
+
+service MLScoreService {
+  rpc Score(ScoreRequest) returns (ScoreResponse);
+}
+
+message ScoreRequest {
+  map<string, double> features = 1;
+  string model_hint = 2;
+}
+
+message ScoreResponse {
+  int32 risk_score = 1;
+  string model_version = 2;
+}
