@@ -2,6 +2,11 @@
 
 Go balance and hold service skeleton.
 
+Implemented today:
+
+- Redis hot-path lookup via `GET account:{id}`
+- tested account snapshot decoding path
+
 Expected layout:
 
 - `cmd/server/` for process startup

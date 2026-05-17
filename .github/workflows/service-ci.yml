@@ -1,0 +1,135 @@
+name: service-ci
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/CODEOWNERS"
+      - ".github/workflows/service-ci.yml"
+      - ".golangci.yml"
+      - "buf.gen.yaml"
+      - "buf.yaml"
+      - "go.mod"
+      - "go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - "proto/**"
+      - "scripts/ci/**"
+      - "services/**"
+  pull_request:
+    paths:
+      - ".github/CODEOWNERS"
+      - ".github/workflows/service-ci.yml"
+      - ".golangci.yml"
+      - "buf.gen.yaml"
+      - "buf.yaml"
+      - "go.mod"
+      - "go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - "proto/**"
+      - "scripts/ci/**"
+      - "services/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  service-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth-service
+            language: go
+            implemented: true
+            dockerfile: services/auth-service/Dockerfile
+            test_pattern: ./services/auth-service/...
+            build_target: ./services/auth-service/cmd/server
+          - service: balance-service
+            language: go
+            implemented: true
+            dockerfile: services/balance-service/Dockerfile
+            test_pattern: ./services/balance-service/...
+            build_target: ./services/balance-service/cmd/server
+          - service: edge-gateway
+            language: edge
+            implemented: false
+            dockerfile: services/edge-gateway/Dockerfile
+          - service: fraud-service
+            language: java
+            implemented: false
+            dockerfile: services/fraud-service/Dockerfile
+          - service: ledger-service
+            language: go
+            implemented: false
+            dockerfile: services/ledger-service/Dockerfile
+          - service: ml-scorer
+            language: python
+            implemented: false
+            dockerfile: services/ml-scorer/Dockerfile
+          - service: notification-service
+            language: go
+            implemented: false
+            dockerfile: services/notification-service/Dockerfile
+          - service: settlement-service
+            language: java
+            implemented: false
+            dockerfile: services/settlement-service/Dockerfile
+    name: ${{ matrix.service }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        if: matrix.language == 'go' && matrix.implemented
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.12"
+          cache: true
+
+      - name: Install buf
+        if: matrix.language == 'go' && matrix.implemented
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Generate protobuf clients
+        if: matrix.language == 'go' && matrix.implemented
+        run: buf generate --template buf.gen.yaml
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+
+      - name: Lint Go sources
+        if: matrix.language == 'go' && matrix.implemented
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60.3
+          args: ${{ matrix.test_pattern }}
+
+      - name: Verify scaffold lint contract
+        if: ${{ !matrix.implemented }}
+        run: python3 scripts/ci/verify_service_scaffold.py --service "${{ matrix.service }}" --phase lint
+
+      - name: Run unit tests
+        if: matrix.language == 'go' && matrix.implemented
+        run: go test ${{ matrix.test_pattern }}
+
+      - name: Verify scaffold unit contract
+        if: ${{ !matrix.implemented }}
+        run: python3 scripts/ci/verify_service_scaffold.py --service "${{ matrix.service }}" --phase unit
+
+      - name: Build service binary
+        if: matrix.language == 'go' && matrix.implemented
+        run: go build ${{ matrix.build_target }}
+
+      - name: Verify scaffold build contract
+        if: ${{ !matrix.implemented }}
+        run: python3 scripts/ci/verify_service_scaffold.py --service "${{ matrix.service }}" --phase build
+
+      - name: Build container image
+        run: docker build -f "${{ matrix.dockerfile }}" -t "local/${{ matrix.service }}:${{ github.sha }}" .

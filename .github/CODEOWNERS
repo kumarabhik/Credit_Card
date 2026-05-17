@@ -1,0 +1,20 @@
+# Default owner for the monorepo.
+* @kumarabhik
+
+# Shared repo policy and automation.
+/.github/ @kumarabhik
+/docs/adr/ @kumarabhik
+/infra/ @kumarabhik
+/observability/ @kumarabhik
+/proto/ @kumarabhik
+/scripts/ @kumarabhik
+
+# Service ownership.
+/services/auth-service/ @kumarabhik
+/services/balance-service/ @kumarabhik
+/services/edge-gateway/ @kumarabhik
+/services/fraud-service/ @kumarabhik
+/services/ledger-service/ @kumarabhik
+/services/ml-scorer/ @kumarabhik
+/services/notification-service/ @kumarabhik
+/services/settlement-service/ @kumarabhik

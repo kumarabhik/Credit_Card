@@ -2,6 +2,14 @@
 
 Go hot-path orchestrator skeleton.
 
+Implemented today:
+
+- gRPC and HTTP servers with graceful shutdown
+- `/healthz` and `/readyz` endpoints
+- OTel trace propagation from `traceparent`
+- structured `zap` logging with `trace_id`
+- DynamoDB-backed idempotency with duplicate replay semantics
+
 Expected layout:
 
 - `cmd/server/` for the service entrypoint

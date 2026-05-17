@@ -260,24 +260,24 @@ ISO-8583-inspired **reason codes** (`05` Do Not Honor, `51` Insufficient Funds, 
 - [x] `make smoke` returns `APPROVE` end-to-end in < 60 s on a warm machine
 
 #### 0.4 CI bones
-- [ ] GitHub Actions matrix: per-service lint + unit + build
-- [ ] `cosign` sign + `syft` SBOM on every image
-- [ ] Branch protection + CODEOWNERS
+- [x] GitHub Actions matrix: per-service lint + unit + build
+- [x] `cosign` sign + `syft` SBOM on every image
+- [x] Branch protection + CODEOWNERS
 
 ### Phase 1 — Hot path MVP  *(Week 1, days 4–7)*
 
 #### 1.1 auth-service skeleton (Go)
-- [ ] gRPC + HTTP servers, graceful shutdown, `/healthz` + `/readyz`
-- [ ] OTel SDK wired, `traceparent` propagation verified end-to-end
-- [ ] Structured `zap` logger with `trace_id` correlation
+- [x] gRPC + HTTP servers, graceful shutdown, `/healthz` + `/readyz`
+- [x] OTel SDK wired, `traceparent` propagation verified end-to-end
+- [x] Structured `zap` logger with `trace_id` correlation
 
 #### 1.2 Idempotency
-- [ ] `Idempotency-Key` header required; Dynamo conditional `PutItem` with 24 h TTL
-- [ ] Returns cached response on duplicate; race-tested with goroutine fan-out
-- [ ] ADR-0005: idempotency strategy
+- [x] `Idempotency-Key` header required; Dynamo conditional `PutItem` with 24 h TTL
+- [x] Returns cached response on duplicate; race-tested with goroutine fan-out
+- [x] ADR-0005: idempotency strategy
 
 #### 1.3 balance-service (Go)
-- [ ] Redis hot path (`GET account:{id}`)
+- [x] Redis hot path (`GET account:{id}`)
 - [ ] Postgres write-through on cache miss
 - [ ] `HOLD` / `RELEASE` / `CAPTURE` primitives — atomic via Redis Lua script
 

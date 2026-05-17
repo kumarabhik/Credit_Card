@@ -1,0 +1,130 @@
+name: image-supply-chain
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/image-supply-chain.yml"
+      - "buf.gen.yaml"
+      - "buf.yaml"
+      - "go.mod"
+      - "go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - "proto/**"
+      - "services/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  publish-images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth-service
+            dockerfile: services/auth-service/Dockerfile
+            generate_proto: true
+          - service: balance-service
+            dockerfile: services/balance-service/Dockerfile
+            generate_proto: true
+          - service: edge-gateway
+            dockerfile: services/edge-gateway/Dockerfile
+            generate_proto: false
+          - service: fraud-service
+            dockerfile: services/fraud-service/Dockerfile
+            generate_proto: false
+          - service: ledger-service
+            dockerfile: services/ledger-service/Dockerfile
+            generate_proto: false
+          - service: ml-scorer
+            dockerfile: services/ml-scorer/Dockerfile
+            generate_proto: false
+          - service: notification-service
+            dockerfile: services/notification-service/Dockerfile
+            generate_proto: false
+          - service: settlement-service
+            dockerfile: services/settlement-service/Dockerfile
+            generate_proto: false
+    name: ${{ matrix.service }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        if: matrix.generate_proto
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.12"
+          cache: true
+
+      - name: Install buf
+        if: matrix.generate_proto
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Generate protobuf clients
+        if: matrix.generate_proto
+        run: buf generate --template buf.gen.yaml
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/credit-card-${{ matrix.service }}
+          tags: |
+            type=sha
+            type=raw,value=main,enable={{is_default_branch}}
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Generate SBOM
+        id: sbom
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/credit-card-${{ matrix.service }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: ${{ runner.temp }}/${{ matrix.service }}-sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-sbom
+          path: ${{ runner.temp }}/${{ matrix.service }}-sbom.spdx.json
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image
+        env:
+          IMAGE_REF: ghcr.io/${{ github.repository_owner }}/credit-card-${{ matrix.service }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE_REF"
+
+      - name: Attest SBOM
+        env:
+          IMAGE_REF: ghcr.io/${{ github.repository_owner }}/credit-card-${{ matrix.service }}@${{ steps.build.outputs.digest }}
+          SBOM_PATH: ${{ runner.temp }}/${{ matrix.service }}-sbom.spdx.json
+        run: cosign attest --yes --predicate "$SBOM_PATH" --type spdxjson "$IMAGE_REF"
