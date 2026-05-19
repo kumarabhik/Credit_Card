@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BUF_IMAGE = "bufbuild/buf:1.57.2"
 SYFT_IMAGE = "anchore/syft:v1.24.0"
 K6_IMAGE = "grafana/k6:0.52.0"
+SMOKE_IDEMPOTENCY_KEY = "smoke-authorize-demo"
+SMOKE_TRACEPARENT = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"
 STACK_SERVICES = [
     "postgres",
     "redis",
@@ -23,7 +25,9 @@ STACK_SERVICES = [
     "otel-collector",
     "prometheus",
     "grafana",
-    "smoke-auth",
+    "balance-service",
+    "ledger-service",
+    "auth-service",
     "edge-gateway",
 ]
 
@@ -91,8 +95,8 @@ def smoke(*, ensure_stack: bool = True) -> None:
         data=json.dumps(request_body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
-            "Idempotency-Key": f"smoke-{int(time.time())}",
-            "Traceparent": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01",
+            "Idempotency-Key": SMOKE_IDEMPOTENCY_KEY,
+            "Traceparent": SMOKE_TRACEPARENT,
         },
         method="POST",
     )
@@ -109,8 +113,10 @@ def smoke(*, ensure_stack: bool = True) -> None:
 
 def test() -> None:
     lint()
-    run([sys.executable, "-m", "compileall", "scripts", "services/auth-service/dev"])
+    run([sys.executable, "-m", "compileall", "scripts"])
     smoke(ensure_stack=True)
+    run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"])
+    run([sys.executable, "-m", "unittest", "discover", "-s", "services/ml-scorer/tests", "-p", "test_*.py"])
 
 
 def load() -> None:
@@ -135,9 +141,9 @@ def load() -> None:
 
 def chaos() -> None:
     up()
-    run(compose("kill", "smoke-auth"))
+    run(compose("kill", "auth-service"))
     time.sleep(3)
-    run(compose("up", "-d", "--wait", "smoke-auth"))
+    run(compose("up", "-d", "--wait", "auth-service"))
     smoke(ensure_stack=False)
 
 

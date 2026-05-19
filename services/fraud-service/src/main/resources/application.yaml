@@ -1,0 +1,7 @@
+spring:
+  main:
+    banner-mode: "off"
+
+fraud:
+  grpc:
+    port: ${FRAUD_GRPC_PORT:9094}

@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+GO_IMAGE = "golang:1.26.3"
 
 
 def run(command: list[str]) -> None:
@@ -52,7 +53,7 @@ def run_gofmt(files: list[str]) -> None:
     if not files:
         print("Skipping gofmt: no Go files found.")
         return
-    run(docker_image("golang:1.22", "gofmt", "-w", *files))
+    run(docker_image(GO_IMAGE, "gofmt", "-w", *files))
 
 
 def run_goimports(files: list[str]) -> None:
@@ -61,11 +62,11 @@ def run_goimports(files: list[str]) -> None:
         return
     run(
         docker_image(
-            "golang:1.22",
+            GO_IMAGE,
             "sh",
             "-lc",
-            "go install golang.org/x/tools/cmd/goimports@latest >/dev/null 2>&1 && /go/bin/goimports -w \"$@\"",
-            "--",
+            "export PATH=\"$PATH:/usr/local/go/bin\"; go install golang.org/x/tools/cmd/goimports@latest >/dev/null 2>&1 && /go/bin/goimports -w \"$@\"",
+            "sh",
             *files,
         )
     )
@@ -79,18 +80,24 @@ def run_golangci() -> None:
     for module in modules:
         run(
             docker_image(
-                "golangci/golangci-lint:v1.59.1",
+                GO_IMAGE,
                 "sh",
                 "-lc",
+                "export PATH=\"$PATH:/usr/local/go/bin:/go/bin\"; "
+                "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest >/dev/null 2>&1 && "
                 f"cd {module} && golangci-lint run ./...",
             )
         )
 
 
 def run_spotless() -> None:
-    gradle_files = find_files(("gradlew", "build.gradle.kts"))
+    gradle_files = find_files(("build.gradle.kts",))
     if not gradle_files:
         print("Skipping Spotless: no Gradle build files found yet.")
+        return
+    gradle_wrappers = find_files(("gradlew",))
+    if not gradle_wrappers:
+        print("Skipping Spotless: no Gradle wrapper found in the repo.")
         return
     if shutil.which("bash") is None:
         print("Skipping Spotless: bash is required to run Gradle wrappers.")

@@ -302,7 +302,7 @@ ISO-8583-inspired **reason codes** (`05` Do Not Honor, `51` Insufficient Funds, 
 
 #### 2.2 ml-scorer (Python)
 - [ ] Synthetic data generator (10 M rows, SMOTE-balanced labels)
-- [ ] Reproducible `train.py` producing versioned XGBoost model
+- [~] Reproducible `train.py` producing versioned XGBoost model
 - [ ] gRPC server, model loaded at boot, < 5 ms inference per call
 - [ ] Model version exposed as Prometheus label
 
@@ -354,7 +354,7 @@ ISO-8583-inspired **reason codes** (`05` Do Not Honor, `51` Insufficient Funds, 
 ### Phase 7 — Async backbone & settlement  *(Week 4, days 4–5)*
 
 - [ ] Outbox table in Dynamo + relay process emitting to SNS
-- [ ] SNS topics: `txn.authorized`, `txn.declined`, `txn.captured`, `txn.reversed`
+- [ ] SNS topics: `txn-authorized`, `txn-declined`, `txn-captured`, `txn-reversed`
 - [ ] SQS subscriptions: settlement (FIFO), notification (Standard), analytics
 - [ ] settlement-service: T+1 batch close, reconciliation against ledger
 - [ ] notification-service: signed webhooks to merchants with exponential backoff + DLQ

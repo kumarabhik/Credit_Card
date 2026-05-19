@@ -122,10 +122,11 @@ func (s *DynamoStore) Complete(ctx context.Context, key string, request *authv1.
 			"body_hash = :body_hash",
 		),
 		UpdateExpression: aws.String(
-			"SET #status = :status, response_json = :response_json, ttl = :ttl, updated_at = :updated_at",
+			"SET #status = :status, response_json = :response_json, #ttl = :ttl, updated_at = :updated_at",
 		),
 		ExpressionAttributeNames: map[string]string{
 			"#status": "status",
+			"#ttl":    "ttl",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":body_hash":     &types.AttributeValueMemberS{Value: bodyHash},

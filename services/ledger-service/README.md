@@ -2,6 +2,13 @@
 
 Go ledger and outbox service skeleton.
 
+Implemented today:
+
+- DynamoDB single-table ledger write path with `PK=ACCT#{id}` and `SK=TXN#{ulid}`
+- `GSI1` merchant projection and `GSI2` idempotency lookup projection
+- optimistic-lock `version` state item updated with conditional Dynamo transactions
+- gRPC `Write` / `Get` service plus HTTP `/healthz` and `/readyz`
+
 Expected layout:
 
 - `cmd/server/` for service startup

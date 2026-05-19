@@ -15,7 +15,6 @@ import (
 	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/obs"
 	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/orchestrator"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestAuthorizeHTTPPropagatesTraceparent(t *testing.T) {
@@ -28,7 +27,7 @@ func TestAuthorizeHTTPPropagatesTraceparent(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = shutdown(context.Background()) }()
 
-	service := orchestrator.New(idempotency.NewMemoryStore(), logger)
+	service := orchestrator.New(idempotency.NewMemoryStore(), logger, nil, nil)
 	handler := newHTTPHandler(service, logger)
 
 	payload := map[string]any{
@@ -51,10 +50,11 @@ func TestAuthorizeHTTPPropagatesTraceparent(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, response.Code)
 
-	result := new(authv1.AuthorizeResponse)
-	err = protojson.Unmarshal(response.Body.Bytes(), result)
+	result := new(authorizeHTTPResponse)
+	err = json.Unmarshal(response.Body.Bytes(), result)
 	require.NoError(t, err)
-	require.Equal(t, "0123456789abcdef0123456789abcdef", result.GetTraceId())
+	require.Equal(t, "0123456789abcdef0123456789abcdef", result.TraceID)
+	require.Equal(t, "APPROVE", result.Decision)
 }
 
 func TestAuthorizeDeduplicatesConcurrentRequests(t *testing.T) {
@@ -63,7 +63,7 @@ func TestAuthorizeDeduplicatesConcurrentRequests(t *testing.T) {
 	logger, err := obs.NewLogger("auth-service-test")
 	require.NoError(t, err)
 
-	service := orchestrator.New(idempotency.NewMemoryStore(), logger)
+	service := orchestrator.New(idempotency.NewMemoryStore(), logger, nil, nil)
 	request := &authv1.AuthorizeRequest{
 		IdempotencyKey: "fanout-key",
 		CardToken:      "tok_demo_card",

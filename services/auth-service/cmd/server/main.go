@@ -15,6 +15,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	authv1 "github.com/kumarabhik/Credit_Card/gen/go/auth/v1"
+	commonv1 "github.com/kumarabhik/Credit_Card/gen/go/common/v1"
+	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/clients"
 	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/config"
 	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/idempotency"
 	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/obs"
@@ -31,6 +33,15 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 )
+
+type authorizeHTTPResponse struct {
+	Decision   string `json:"decision"`
+	RiskScore  int32  `json:"riskScore"`
+	ReasonCode string `json:"reasonCode"`
+	AuthCode   string `json:"authCode"`
+	TraceID    string `json:"traceId"`
+	TxnID      string `json:"txnId"`
+}
 
 func main() {
 	if err := run(context.Background()); err != nil {
@@ -65,7 +76,14 @@ func run(parent context.Context) error {
 		store = idempotency.NewMemoryStore()
 	}
 
-	service := orchestrator.New(store, logger)
+	balanceClient := clients.NewBalanceClient(cfg.BalanceBaseURL, 750*time.Millisecond)
+	ledgerClient, err := clients.NewLedgerClient(parent, cfg.LedgerGRPCAddr, 1500*time.Millisecond)
+	if err != nil {
+		return fmt.Errorf("create ledger client: %w", err)
+	}
+	defer func() { _ = ledgerClient.Close() }()
+
+	service := orchestrator.New(store, logger, balanceClient, ledgerClient)
 
 	httpServer := &http.Server{
 		Addr:    cfg.HTTPAddr,
@@ -167,17 +185,30 @@ func newHTTPHandler(service *orchestrator.Service, logger *zap.Logger) http.Hand
 			return
 		}
 
-		responsePayload, err := protojson.Marshal(response)
-		if err != nil {
-			writeError(writer, http.StatusInternalServerError, "failed to encode response", response.GetTraceId())
-			return
-		}
-		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(http.StatusOK)
-		_, _ = writer.Write(responsePayload)
+		writeJSON(writer, http.StatusOK, authorizeHTTPResponse{
+			Decision:   decisionLabel(response.GetDecision()),
+			RiskScore:  response.GetRiskScore(),
+			ReasonCode: response.GetReasonCode(),
+			AuthCode:   response.GetAuthCode(),
+			TraceID:    response.GetTraceId(),
+			TxnID:      response.GetTxnId(),
+		})
 	})
 
 	return router
+}
+
+func decisionLabel(decision commonv1.Decision) string {
+	switch decision {
+	case commonv1.Decision_DECISION_APPROVE:
+		return "APPROVE"
+	case commonv1.Decision_DECISION_DECLINE:
+		return "DECLINE"
+	case commonv1.Decision_DECISION_REVIEW:
+		return "REVIEW"
+	default:
+		return "UNSPECIFIED"
+	}
 }
 
 func writeStatusError(writer http.ResponseWriter, logger *zap.Logger, ctx context.Context, err error) {

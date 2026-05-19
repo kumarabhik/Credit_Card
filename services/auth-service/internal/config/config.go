@@ -11,6 +11,8 @@ type Config struct {
 	DynamoEndpoint   string
 	IdempotencyTable string
 	OTLPGRPCEndpoint string
+	BalanceBaseURL   string
+	LedgerGRPCAddr   string
 }
 
 // Load returns the environment-backed configuration with safe local defaults.
@@ -23,6 +25,8 @@ func Load() Config {
 		DynamoEndpoint:   os.Getenv("AUTH_DYNAMO_ENDPOINT"),
 		IdempotencyTable: envOrDefault("AUTH_IDEMPOTENCY_TABLE", "cc-ledger-local"),
 		OTLPGRPCEndpoint: envOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:14319"),
+		BalanceBaseURL:   envOrDefault("AUTH_BALANCE_BASE_URL", "http://127.0.0.1:8082"),
+		LedgerGRPCAddr:   envOrDefault("AUTH_LEDGER_GRPC_ADDR", "127.0.0.1:9093"),
 	}
 }
 
