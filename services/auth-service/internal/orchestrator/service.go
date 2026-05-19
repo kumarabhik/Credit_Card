@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	authv1 "github.com/kumarabhik/Credit_Card/gen/go/auth/v1"
 	commonv1 "github.com/kumarabhik/Credit_Card/gen/go/common/v1"
+	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/clients"
 	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/idempotency"
 	"github.com/kumarabhik/Credit_Card/services/auth-service/internal/obs"
 	"go.opentelemetry.io/otel"
@@ -26,15 +27,19 @@ type Service struct {
 	store     idempotency.Store
 	logger    *zap.Logger
 	tracer    trace.Tracer
+	balance   *clients.BalanceClient
+	ledger    *clients.LedgerClient
 	responder func(context.Context) *authv1.AuthorizeResponse
 }
 
 // New returns the auth orchestrator service.
-func New(store idempotency.Store, logger *zap.Logger) *Service {
+func New(store idempotency.Store, logger *zap.Logger, balance *clients.BalanceClient, ledger *clients.LedgerClient) *Service {
 	return &Service{
-		store:  store,
-		logger: logger,
-		tracer: otel.Tracer("auth-service"),
+		store:   store,
+		logger:  logger,
+		tracer:  otel.Tracer("auth-service"),
+		balance: balance,
+		ledger:  ledger,
 		responder: func(ctx context.Context) *authv1.AuthorizeResponse {
 			traceID := trace.SpanContextFromContext(ctx).TraceID().String()
 			authCode := strings.ToUpper(strings.ReplaceAll(traceID, "-", ""))
@@ -61,7 +66,20 @@ func (s *Service) SetResponder(responder func(context.Context) *authv1.Authorize
 
 // Ready reports whether downstream dependencies needed by the auth service are reachable.
 func (s *Service) Ready(ctx context.Context) error {
-	return s.store.Ready(ctx)
+	if err := s.store.Ready(ctx); err != nil {
+		return err
+	}
+	if s.balance != nil {
+		if err := s.balance.Ready(ctx); err != nil {
+			return err
+		}
+	}
+	if s.ledger != nil {
+		if err := s.ledger.Ready(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Authorize handles the MVP authorize request flow with idempotent response replay.
@@ -107,9 +125,23 @@ func (s *Service) Authorize(ctx context.Context, request *authv1.AuthorizeReques
 		return claim.Response, nil
 	}
 
-	response := s.responder(ctx)
+	response := s.executeAuthorization(ctx, request)
 	if err := s.store.Complete(ctx, request.GetIdempotencyKey(), request, response, 24*time.Hour); err != nil {
-		_ = s.store.Abandon(ctx, request.GetIdempotencyKey())
+		obs.WithTrace(ctx, s.logger).Error(
+			"failed to complete idempotency record",
+			zap.String("merchant_id", request.GetMerchantId()),
+			zap.String("idempotency_key", request.GetIdempotencyKey()),
+			zap.String("txn_id", response.GetTxnId()),
+			zap.String("decision", response.GetDecision().String()),
+			zap.Error(err),
+		)
+		if abandonErr := s.store.Abandon(ctx, request.GetIdempotencyKey()); abandonErr != nil {
+			obs.WithTrace(ctx, s.logger).Error(
+				"failed to abandon idempotency record",
+				zap.String("idempotency_key", request.GetIdempotencyKey()),
+				zap.Error(abandonErr),
+			)
+		}
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "store completion failed")
 		return nil, status.Error(grpcodes.Internal, "failed to persist authorize response")
@@ -123,6 +155,76 @@ func (s *Service) Authorize(ctx context.Context, request *authv1.AuthorizeReques
 	)
 
 	return response, nil
+}
+
+func (s *Service) executeAuthorization(ctx context.Context, request *authv1.AuthorizeRequest) *authv1.AuthorizeResponse {
+	if s.balance == nil || s.ledger == nil {
+		return s.responder(ctx)
+	}
+
+	traceID := trace.SpanContextFromContext(ctx).TraceID().String()
+	authCode := strings.ToUpper(traceID)
+	if len(authCode) > 6 {
+		authCode = authCode[:6]
+	}
+	accountID := deriveAccountID(request.GetCardToken())
+	txnID := fmt.Sprintf("txn_%s", uuid.NewString()[:12])
+
+	balanceResponse, err := s.balance.Authorize(ctx, &clients.BalanceAuthorizeRequest{
+		AccountID:      accountID,
+		TxnID:          txnID,
+		Amount:         request.GetAmount(),
+		IdempotencyKey: request.GetIdempotencyKey(),
+		MerchantID:     request.GetMerchantId(),
+	})
+	if err != nil {
+		obs.WithTrace(ctx, s.logger).Warn("balance authorize failed", zap.Error(err))
+		return &authv1.AuthorizeResponse{
+			Decision:   commonv1.Decision_DECISION_DECLINE,
+			RiskScore:  0,
+			ReasonCode: "96",
+			AuthCode:   authCode,
+			TraceId:    traceID,
+			TxnId:      txnID,
+		}
+	}
+	if balanceResponse.Decision != "APPROVE" {
+		return &authv1.AuthorizeResponse{
+			Decision:   commonv1.Decision_DECISION_DECLINE,
+			RiskScore:  0,
+			ReasonCode: balanceResponse.ReasonCode,
+			AuthCode:   authCode,
+			TraceId:    traceID,
+			TxnId:      txnID,
+		}
+	}
+
+	if _, err := s.ledger.Write(ctx, txnID, accountID, request.GetMerchantId(), request.GetIdempotencyKey(), request.GetAmount()); err != nil {
+		obs.WithTrace(ctx, s.logger).Warn("ledger write failed", zap.Error(err))
+		return &authv1.AuthorizeResponse{
+			Decision:   commonv1.Decision_DECISION_DECLINE,
+			RiskScore:  0,
+			ReasonCode: "96",
+			AuthCode:   authCode,
+			TraceId:    traceID,
+			TxnId:      txnID,
+		}
+	}
+
+	return &authv1.AuthorizeResponse{
+		Decision:   commonv1.Decision_DECISION_APPROVE,
+		RiskScore:  127,
+		ReasonCode: "00",
+		AuthCode:   authCode,
+		TraceId:    traceID,
+		TxnId:      txnID,
+	}
+}
+
+func deriveAccountID(cardToken string) string {
+	suffix := strings.TrimPrefix(cardToken, "tok_")
+	suffix = strings.ReplaceAll(suffix, "-", "_")
+	return fmt.Sprintf("acct_%s", suffix)
 }
 
 // Capture is not implemented in the MVP skeleton yet.

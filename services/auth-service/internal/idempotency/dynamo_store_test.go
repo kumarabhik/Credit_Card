@@ -118,6 +118,8 @@ func TestDynamoStoreCompleteWritesCachedResponse(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, client.updateItemInput)
 	require.Contains(t, *client.updateItemInput.UpdateExpression, "response_json")
+	require.Contains(t, *client.updateItemInput.UpdateExpression, "#ttl")
+	require.Equal(t, "ttl", client.updateItemInput.ExpressionAttributeNames["#ttl"])
 }
 
 func sampleRequest() *authv1.AuthorizeRequest {

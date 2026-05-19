@@ -139,7 +139,7 @@ This project implements the **issuer-side authorization core** — the part that
 | FR-006 | A capture shall convert a hold into a settled ledger entry; partial captures shall be supported up to the held amount. |
 | FR-007 | A refund shall produce a counter-entry; partial refunds shall be supported up to the captured amount. |
 | FR-008 | Fraud scoring shall combine rule output and ML score into a 0–1000 risk score with a documented aggregation formula. |
-| FR-009 | The system shall publish `txn.authorized`, `txn.declined`, `txn.captured`, `txn.reversed`, `txn.refunded`, `txn.chargedback` events to SNS. |
+| FR-009 | The system shall publish `txn-authorized`, `txn-declined`, `txn-captured`, `txn-reversed`, `txn-refunded`, `txn-chargedback` events to SNS. |
 | FR-010 | Settlement shall close batches on a T+1 schedule and reconcile each batch against the ledger. |
 | FR-011 | The system shall emit signed webhooks to merchants on every state transition, retrying with exponential backoff and a DLQ. |
 | FR-012 | The system shall expose ISO-8583-style reason codes (`05`, `51`, `54`, `61`, `91`, …) on every decline. |
@@ -528,7 +528,7 @@ At-least-once delivery; consumers must be idempotent (they are — every consume
 | Workflow | Trigger | Steps |
 |---|---|---|
 | Batch open | Hourly cron | Create `settlement_batches` row, state=OPEN |
-| Entry append | SQS message `txn.captured` | Append to current OPEN batch |
+| Entry append | SQS message `txn-captured` | Append to current OPEN batch |
 | Batch close | Daily cron T+1 03:00 UTC | OPEN → CLOSING; freeze entries |
 | Reconcile | Immediately after close | Compare batch entries vs ledger query for window → write `reconciliation_entries` |
 | Disposition | After reconcile | Match → SETTLED; mismatch → DISPUTED, alert PagerDuty |
@@ -1051,7 +1051,7 @@ sequenceDiagram
     L-->>A: TXN_AUTH found, state=AUTHORIZED
     A->>B: Capture(account, hold_id, amount)
     B-->>A: ok
-    A->>L: Write(TXN_CAPTURE) + emit txn.captured
+    A->>L: Write(TXN_CAPTURE) + emit txn-captured
     L-->>A: ok
     A-->>POS: 200 CAPTURED
 ```
@@ -1070,7 +1070,7 @@ sequenceDiagram
     A->>L: Read TXN_CAPTURE
     L-->>A: ok
     A->>B: Credit(account, amount)
-    A->>L: Write(TXN_REFUND) + emit txn.refunded
+    A->>L: Write(TXN_REFUND) + emit txn-refunded
     L-->>A: ok
     A-->>POS: 200 REFUNDED
 ```
@@ -1089,7 +1089,7 @@ sequenceDiagram
     A->>L: Read TXN_AUTH (must be AUTHORIZED not CAPTURED)
     L-->>A: ok
     A->>B: Release(account, hold_id)
-    A->>L: Write(TXN_REVERSAL) + emit txn.reversed
+    A->>L: Write(TXN_REVERSAL) + emit txn-reversed
     A-->>POS: 200 REVERSED
 ```
 
@@ -1142,7 +1142,7 @@ sequenceDiagram
     participant M as merchant webhook
     participant DLQ as DLQ
 
-    Q->>N: txn.captured msg
+    Q->>N: txn-captured msg
     N->>N: sign HMAC
     N->>M: POST + headers
     alt 2xx

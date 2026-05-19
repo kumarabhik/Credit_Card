@@ -1,7 +1,15 @@
-FROM alpine:3.20
+FROM python:3.13-slim
 
-WORKDIR /app
+WORKDIR /workspace
 
-COPY services/ml-scorer/README.md /app/README.md
+COPY services/ml-scorer/requirements.txt /tmp/requirements.txt
+RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 
-CMD ["sh", "-c", "echo ml-scorer scaffold image ready"]
+COPY gen/python ./gen/python
+COPY services/ml-scorer/README.md ./services/ml-scorer/README.md
+COPY services/ml-scorer/app ./services/ml-scorer/app
+COPY services/ml-scorer/model ./services/ml-scorer/model
+
+ENV PYTHONPATH=/workspace/gen/python:/workspace/services/ml-scorer/app
+
+CMD ["python", "-m", "ml_scorer.main"]

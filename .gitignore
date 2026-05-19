@@ -38,3 +38,22 @@ localstack-data/
 .env
 .env.*
 !.env.example
+
+# Local ML datasets and artifacts
+services/ml-scorer/data/raw/
+services/ml-scorer/data/processed/
+services/ml-scorer/model/*.json
+services/ml-scorer/model/*.pkl
+services/ml-scorer/model/*.pickle
+services/ml-scorer/model/*.bin
+services/ml-scorer/model/*.joblib
+train_transaction.csv
+train_identity.csv
+test_transaction.csv
+test_identity.csv
+sample_submission.csv
+
+# Local-only docs (never committed)
+# system.md captures this developer machine's installed toolchain and paths;
+# it is per-machine ground truth, not part of the shared repo contract.
+system.md

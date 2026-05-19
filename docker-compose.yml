@@ -7,6 +7,8 @@ services:
       POSTGRES_USER: postgres
     ports:
       - "15432:5432"
+    volumes:
+      - "./scripts/postgres:/docker-entrypoint-initdb.d:ro"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d cc"]
       interval: 5s
@@ -91,22 +93,66 @@ services:
       - prometheus
       - loki
 
-  smoke-auth:
-    image: python:3.13-slim
-    working_dir: /workspace
-    command: ["python", "-u", "services/auth-service/dev/smoke_server.py"]
+  balance-service:
+    build:
+      context: .
+      dockerfile: services/balance-service/Dockerfile
     environment:
-      PORT: "8080"
-    volumes:
-      - ".:/workspace"
+      BALANCE_HTTP_ADDR: ":8082"
+      BALANCE_REDIS_ADDR: "redis:6379"
+      BALANCE_POSTGRES_DSN: "postgres://postgres:postgres@postgres:5432/cc?sslmode=disable"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/readyz').read()",
-        ]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/readyz >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ledger-service:
+    build:
+      context: .
+      dockerfile: services/ledger-service/Dockerfile
+    environment:
+      LEDGER_HTTP_ADDR: ":8083"
+      LEDGER_GRPC_ADDR: ":9093"
+      LEDGER_DYNAMO_ENDPOINT: "http://localstack:4566"
+      LEDGER_TABLE_NAME: "cc-ledger-local"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
+    depends_on:
+      localstack:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8083/readyz >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    environment:
+      AUTH_HTTP_ADDR: ":8081"
+      AUTH_GRPC_ADDR: ":9091"
+      AUTH_DYNAMO_ENDPOINT: "http://localstack:4566"
+      AUTH_IDEMPOTENCY_TABLE: "cc-ledger-local"
+      AUTH_BALANCE_BASE_URL: "http://balance-service:8082"
+      AUTH_LEDGER_GRPC_ADDR: "ledger-service:9093"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
+    depends_on:
+      balance-service:
+        condition: service_healthy
+      ledger-service:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/readyz >/dev/null 2>&1"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -115,7 +161,7 @@ services:
     image: envoyproxy/envoy:v1.31-latest
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--log-level", "info"]
     depends_on:
-      smoke-auth:
+      auth-service:
         condition: service_healthy
     ports:
       - "8080:8080"

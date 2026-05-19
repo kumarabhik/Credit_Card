@@ -22,29 +22,29 @@ static_resources:
                 route_config:
                   name: local_routes
                   virtual_hosts:
-                    - name: smoke_auth
+                    - name: auth_service
                       domains: ["*"]
                       routes:
                         - match:
                             prefix: "/"
                           route:
-                            cluster: smoke_auth
+                            cluster: auth_service
                 http_filters:
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
   clusters:
-    - name: smoke_auth
+    - name: auth_service
       connect_timeout: 1s
       type: LOGICAL_DNS
       lb_policy: ROUND_ROBIN
       load_assignment:
-        cluster_name: smoke_auth
+        cluster_name: auth_service
         endpoints:
           - lb_endpoints:
               - endpoint:
                   address:
                     socket_address:
-                      address: smoke-auth
-                      port_value: 8080
+                      address: auth-service
+                      port_value: 8081

@@ -7,9 +7,10 @@
 ## 0. Read order — do this first, every session
 
 1. **`agents.md`** (this file)
-2. **`roadmap.md`** — find the next `[ ]` or `[~]` item; that is the work
-3. **`docs/adr/`** — read all Architecture Decision Records before touching architecture
-4. **`services/<name>/AGENTS.md`** (if present) — local override for that service
+2. **`system.md`** — developer-environment ground truth. Verify a tool is listed there **before** invoking it. If you install / upgrade / remove anything or change PATH or any env var, you **must** update `system.md` in the same change. Also, if you make a material repo, runtime, debugging, or process change, you **must** refresh the `system.md` checkpoint before ending the session so the next agent inherits facts instead of guesses. This file exists specifically to prevent agents from hallucinating "X is installed" when it isn't.
+3. **`roadmap.md`** — find the next `[ ]` or `[~]` item; that is the work
+4. **`docs/adr/`** — read all Architecture Decision Records before touching architecture
+5. **`services/<name>/AGENTS.md`** (if present) — local override for that service
 
 If any of the above contradicts a vague user request, the docs win. Surface the conflict; do not silently resolve it.
 
@@ -28,6 +29,8 @@ These are not preferences. Violating them fails CI or fails review.
 - **No `interface{}` / raw `Object` at service boundaries.** Protobuf or typed DTOs only.
 - **No `.block()` in WebFlux code.** Use `Mono` / `Flux` end to end.
 - **No `time.Sleep` in test code.** Use real synchronization (channels, `eventually`, `Awaitility`).
+- **Verify before invoking.** Don't run a tool that isn't listed in `system.md`. Don't trust a memory, a comment, or another agent's claim that "X is installed" — run `<tool> --version` and check the row. If a row is wrong, fix `system.md` before doing anything else. If a tool is missing, install it (with the user's permission) and update `system.md` + the "Recent changes" log in the same change.
+- **Leave a factual checkpoint before you yield.** If you make any material code, runtime, roadmap, debugging, or process change, update `system.md` before ending the session. At minimum record what changed, what you verified, what is still broken (if anything), and the exact next step. This applies even when the host toolchain did not change.
 
 ---
 
@@ -208,6 +211,8 @@ If a PR doesn't add or change observability, ask: *would I be able to debug this
 - **Bare goroutines** spawned from request handlers (use `errgroup` with context cancellation)
 - **`SELECT *`** in SQL or `Scan` without a projection in Dynamo — list the attributes you actually need
 - **Hardcoded ARNs, account IDs, or region names** in code or Terraform
+- **Changing the dev environment without updating `system.md`** — installing / upgrading / removing tooling, modifying PATH, or changing any host env var must include a `system.md` row update **and** a "Recent changes" log entry in the same logical change. (`system.md` itself is gitignored and per-machine; the update is local but mandatory before invoking anything new.)
+- **Ending a significant session without updating the `system.md` checkpoint** — if the work changed repo behavior, runtime state, debugging truth, or the resume plan, document it locally before you stop.
 
 ---
 
