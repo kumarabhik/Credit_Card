@@ -38,6 +38,12 @@ def parse_args() -> argparse.Namespace:
         default=42,
         help="Random seed used for sampling and train/validation split.",
     )
+    parser.add_argument(
+        "--balance-mode",
+        choices=("smote", "none"),
+        default="smote",
+        help="How to rebalance the training split before fitting XGBoost.",
+    )
     return parser.parse_args()
 
 
@@ -50,7 +56,11 @@ def main() -> None:
         max_rows=args.max_rows,
         random_state=args.random_state,
     )
-    bundle = train_bundle(dataset, random_state=args.random_state)
+    bundle = train_bundle(
+        dataset,
+        random_state=args.random_state,
+        balance_mode=args.balance_mode,
+    )
     artifact_path = save_bundle(bundle, args.model_dir, source=str(args.data_dir.resolve()))
 
     logger.info(
@@ -58,6 +68,12 @@ def main() -> None:
         artifact_path=str(artifact_path.resolve()),
         model_version=bundle.model_version,
         validation_auc=round(bundle.validation_auc, 6),
+        average_precision=round(bundle.training_report.average_precision, 6),
+        precision=round(bundle.training_report.precision, 6),
+        recall=round(bundle.training_report.recall, 6),
+        f1=round(bundle.training_report.f1, 6),
+        decision_threshold=round(bundle.training_report.decision_threshold, 6),
+        smote_applied=bundle.training_report.smote_applied,
         trained_rows=bundle.trained_rows,
     )
 

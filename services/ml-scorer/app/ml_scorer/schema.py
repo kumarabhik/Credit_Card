@@ -38,3 +38,9 @@ def frame_from_feature_map(features: Mapping[str, float]) -> pd.DataFrame:
     row = {name: float(features.get(name, np.nan)) for name in MODEL_FEATURE_NAMES}
     return pd.DataFrame([row], columns=MODEL_FEATURE_NAMES)
 
+
+def vector_from_feature_map(features: Mapping[str, float]) -> np.ndarray:
+    return np.asarray(
+        [[float(features.get(name, np.nan)) for name in MODEL_FEATURE_NAMES]],
+        dtype=float,
+    )

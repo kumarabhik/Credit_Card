@@ -46,6 +46,8 @@ class ArtifactTest(unittest.TestCase):
         self.assertLessEqual(response_probability, 1.0)
         self.assertGreaterEqual(probability_to_risk_score(response_probability), 0)
         self.assertLessEqual(probability_to_risk_score(response_probability), 1000)
+        self.assertGreater(bundle.training_report.decision_threshold, 0.0)
+        self.assertGreaterEqual(bundle.training_report.average_precision, 0.0)
 
 
 if __name__ == "__main__":
